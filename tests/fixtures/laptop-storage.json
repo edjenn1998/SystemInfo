@@ -1,0 +1,112 @@
+{
+  "records": [
+    {
+      "kind": "loop",
+      "name": "loop0",
+      "path": "/dev/loop0",
+      "size": 46882816,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "loop",
+      "name": "loop1",
+      "path": "/dev/loop1",
+      "size": 557309952,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "loop",
+      "name": "loop2",
+      "path": "/dev/loop2",
+      "size": 4096,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "loop",
+      "name": "loop3",
+      "path": "/dev/loop3",
+      "size": 77574144,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "loop",
+      "name": "loop4",
+      "path": "/dev/loop4",
+      "size": 52711424,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "loop",
+      "name": "loop5",
+      "path": "/dev/loop5",
+      "size": 110305280,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "loop",
+      "name": "loop6",
+      "path": "/dev/loop6",
+      "size": 59621376,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "loop",
+      "name": "loop7",
+      "path": "/dev/loop7",
+      "size": 96141312,
+      "model": null,
+      "transport": null,
+      "rotational": false
+    },
+    {
+      "kind": "disk",
+      "name": "nvme0n1",
+      "path": "/dev/nvme0n1",
+      "size": 1024209543168,
+      "model": "PM991a NVMe Samsung 1024GB",
+      "transport": "nvme",
+      "rotational": false
+    },
+    {
+      "kind": "part",
+      "name": "nvme0n1p1",
+      "path": "/dev/nvme0n1p1",
+      "size": 1023410176,
+      "model": null,
+      "transport": "nvme",
+      "rotational": false
+    },
+    {
+      "kind": "part",
+      "name": "nvme0n1p2",
+      "path": "/dev/nvme0n1p2",
+      "size": 1006292172800,
+      "model": null,
+      "transport": "nvme",
+      "rotational": false
+    },
+    {
+      "kind": "part",
+      "name": "nvme0n1p3",
+      "path": "/dev/nvme0n1p3",
+      "size": 16892559360,
+      "model": null,
+      "transport": "nvme",
+      "rotational": false
+    }
+  ]
+}
