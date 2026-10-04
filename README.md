@@ -115,8 +115,7 @@ on the target computer.
 
 ## Third-party components
 
-Application version: 1.2.0. Original application code has no assigned public
-license. Third-party license texts/notices are included under `licenses/`.
+Application version: 1.2.0. Third-party license texts/notices are included in `licenses.tar.xz`.
 Qt/PySide6 uses LGPLv3/GPLv3 or commercial licensing; psutil uses BSD-3-Clause;
 PyInstaller has a bootloader distribution exception; iw and xcb-cursor have
 permissive licenses. Review licenses and choose a license for your own application
