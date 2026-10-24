@@ -76,4 +76,5 @@ def parse_smbios(blob):
         pos=end+2
         if typ==127:break
     if not sections:raise ValueError('No supported firmware inventory structures were found')
+    if typ != 127 and pos != len(blob): raise ValueError('Truncated firmware structure header')
     return sections

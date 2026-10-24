@@ -2,7 +2,6 @@
 import glob
 import re
 from pathlib import Path
-from .collectors.base import read_file
 
 def unescape_fstab(value):
     return re.sub(r'\\([0-7]{3})',lambda m:chr(int(m[1],8)),value)

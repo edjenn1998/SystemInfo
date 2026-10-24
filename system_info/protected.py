@@ -5,12 +5,13 @@ Python executable never run as root. No shell, passwords, or temporary scripts.
 """
 import json
 import os
-import re
 import subprocess
 import shutil
 import stat
 from pathlib import Path
 from .smbios import parse_smbios
+from .collectors.base import system_environment
+from .inventory import valid_drive_path
 
 def trusted_tool(name, paths):
     # Distro-neutral discovery, but never elevate a user-controlled PATH binary.
@@ -30,32 +31,35 @@ def trusted_tool(name, paths):
     raise RuntimeError(f'{name} is not installed in a trusted system location on this computer.')
 
 def read_protected(action, device=None):
+    if action not in ('firmware','smart'):raise ValueError('Unsupported protected operation')
+    if action=='smart' and not valid_drive_path(device):
+        raise RuntimeError('Select a supported physical drive from the live inventory.')
     pkexec=trusted_tool('Desktop authorization (pkexec)',['/usr/bin/pkexec','/bin/pkexec'])
     if action=='firmware':
         cat=trusted_tool('cat',['/usr/bin/cat','/bin/cat'])
         args=[pkexec,cat,'/sys/firmware/dmi/tables/DMI']
     elif action=='smart':
-        if not device or not re.fullmatch(r'/dev/(?:nvme\d+n\d+|sd[a-z]+|hd[a-z]+|mmcblk\d+|vd[a-z]+)',device):
-            raise RuntimeError('Select a supported physical drive from the live inventory.')
         smartctl=trusted_tool('smartctl (smartmontools)',['/usr/sbin/smartctl','/sbin/smartctl','/usr/bin/smartctl'])
         args=[pkexec,smartctl,'-j','-a',device]
     else:raise ValueError('Unsupported protected operation')
-    try:proc=subprocess.run(args,capture_output=True,timeout=120)
+    try:proc=subprocess.run(args,capture_output=True,timeout=120,env=system_environment())
     except subprocess.TimeoutExpired:raise RuntimeError('Authorization or hardware read timed out.')
-    if proc.returncode in (126,127):raise RuntimeError('Authorization was cancelled or denied. The normal report remains available.')
     if action=='firmware':
+        if proc.returncode in (126,127):raise RuntimeError('Authorization was cancelled or denied. The normal report remains available.')
         if proc.returncode==0:return parse_smbios(proc.stdout)
         # Older kernels and some distributions expose SMBIOS only through dmidecode.
         decoder=trusted_tool('dmidecode (firmware fallback)',['/usr/sbin/dmidecode','/sbin/dmidecode','/usr/bin/dmidecode'])
         from .inventory import DMI_TYPES,dmi_sections
-        try:fallback=subprocess.run([pkexec,decoder,'--type',DMI_TYPES],capture_output=True,timeout=120)
+        try:fallback=subprocess.run([pkexec,decoder,'--type',DMI_TYPES],capture_output=True,timeout=120,env=system_environment())
         except subprocess.TimeoutExpired:raise RuntimeError('The firmware fallback timed out.')
         if fallback.returncode in (126,127):raise RuntimeError('Firmware authorization was cancelled or denied.')
         sections=dmi_sections(fallback.stdout.decode('utf-8',errors='replace'))
         if fallback.returncode!=0 or not sections:raise RuntimeError('This machine did not expose readable firmware inventory.')
         return sections
     try:data=json.loads(proc.stdout)
-    except (ValueError,UnicodeDecodeError):raise RuntimeError('The drive did not return a readable SMART report.')
-    if not any(k in data for k in ('smart_status','nvme_smart_health_information_log','ata_smart_attributes')):
+    except (ValueError,UnicodeDecodeError):
+        if proc.returncode in (126,127):raise RuntimeError('Authorization was cancelled or denied. The normal report remains available.')
+        raise RuntimeError('The drive did not return a readable SMART report.')
+    if not isinstance(data,dict) or not any(k in data for k in ('smart_status','nvme_smart_health_information_log','ata_smart_attributes')):
         raise RuntimeError('SMART information is not available for this drive or its connection.')
     return data

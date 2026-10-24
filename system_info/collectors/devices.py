@@ -17,5 +17,5 @@ class DevicesCollector(Collector):
             m=re.match(r'(\S+)\s+(.*?)\s+\[([0-9a-f]{4})\]:\s*(.*?)\s*\[([0-9a-f]{4}):([0-9a-f]{4})\]',line,re.I)
             if m:r.add_record({'kind':'internal_controller','name':m[4],'controller_type':m[2],'slot':m[1],'vendor_id':m[5],'device_id':m[6],'advanced':True})
         r.note='Includes built-in USB devices such as webcams, Bluetooth and fingerprint readers. Hubs and internal PCI controllers are shown with technical details.'
-        if not usb:r.note+=' lsusb is not available.'
+        if usb is None:r.note+=' lsusb is unavailable or could not read the USB inventory.'
         return r

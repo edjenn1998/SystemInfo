@@ -18,6 +18,7 @@ def nm_fields(line):
         elif char=='\\':escape=True
         elif char==':':values.append(current);current=''
         else:current+=char
+    if escape: current+='\\'
     values.append(current);return values
 
 def wifi_link(iface):
@@ -33,7 +34,7 @@ def wifi_link(iface):
         for line in out.splitlines():
             fields=nm_fields(line)
             if len(fields)==4 and fields[0]=='yes':
-                rec.setdefault('SSID',fields[1]);rec['advertised_AP_rate']=fields[2];rec['signal_percent']=fields[3]
+                rec.setdefault('SSID',fields[1]);rec.setdefault('connection_state','Connected');rec['advertised_AP_rate']=fields[2];rec['signal_percent']=fields[3]
                 break
     # AP advertised rate is not the negotiated link rate or measured throughput.
     if not rec.get('transmit_link_rate'):rec['link_rate_note']='Negotiated Wi-Fi speed is not reported; advertised AP rate is not a speed test'
@@ -48,7 +49,8 @@ class NetworkCollector(Collector):
         try:stats=psutil.net_if_stats()
         except (OSError,psutil.Error):stats={}
         names=sorted(set(addrs)|{p.rsplit('/',1)[-1] for p in glob.glob('/sys/class/net/*')})
-        io=psutil.net_io_counters(pernic=True)
+        try:io=psutil.net_io_counters(pernic=True) or {}
+        except (OSError,psutil.Error):io={}
         for iface in names:
             path=Path('/sys/class/net')/iface
             is_physical=(path/'device').exists()
@@ -56,7 +58,7 @@ class NetworkCollector(Collector):
             kind='Wi-Fi' if is_wifi else 'Ethernet / hardware interface' if is_physical else 'Loopback (local computer traffic)' if iface=='lo' else 'Tailscale VPN' if iface.startswith('tailscale') else 'Virtual network interface'
             st=stats.get(iface);state=read_file(str(path/'operstate'))
             rec={'kind':'network_adapter' if is_physical else 'virtual_interface','name':iface,'adapter_type':kind,
-                'state':state or ('Up' if st and st.isup else 'Down'), 'MTU':st.mtu if st else None,'advanced':not is_physical}
+                'state':state or ('Up' if st.isup else 'Down') if st else state or 'Not reported', 'MTU':st.mtu if st else None,'advanced':not is_physical}
             if is_physical:
                 physical+=1;dev=path/'device';slot=dev.resolve().name
                 pci=run_cmd(['lspci','-s',slot,'-nn']) if re.fullmatch(r'[0-9a-fA-F:]+\.[0-7]',slot) else None

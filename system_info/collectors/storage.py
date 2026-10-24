@@ -1,37 +1,40 @@
 """Installed drives first; virtual disks and partitions are technical details."""
 import glob
 import json
-import re
 from pathlib import Path
 import psutil
-from .base import Collector, run_cmd, read_file, which
-from ..inventory import capacity_label, meaningful, numeric
+from .base import Collector, run_cmd, read_file, which, run_process
+from ..inventory import capacity_label, meaningful, numeric, valid_drive_path
 from ..filesystems import parse_fstab, match_fstab, device_aliases
 
 def smart_report(path, context):
     data=context.get('smart_reports',{}).get(path)
-    if data is None and which('smartctl'):
+    if data is None and valid_drive_path(path) and which('smartctl'):
         # smartctl uses a bitmask status: a nonzero code may still contain a valid health report.
-        import subprocess, os
         try:
-            proc=subprocess.run(['smartctl','-j','-a',path],capture_output=True,text=True,timeout=6,env={**os.environ,'LC_ALL':'C'})
+            proc=run_process(['smartctl','-j','-a',path],timeout=6)
+            if proc is None: return {}
             data=json.loads(proc.stdout)
-        except (OSError,ValueError,subprocess.TimeoutExpired):return {}
+        except (OSError,ValueError):return {}
     if not isinstance(data,dict):return {}
     return data
 
 def health_fields(data):
-    if not data:return {}
-    rec={};status=data.get('smart_status',{}).get('passed')
-    if status is not None:rec['SMART health']='Passed' if status else 'FAILED'
-    for key,value in [('Temperature (°C)',data.get('temperature',{}).get('current')),('Power-on hours',data.get('power_on_time',{}).get('hours'))]:
+    if not isinstance(data,dict) or not data:return {}
+    def section(name): return data.get(name) if isinstance(data.get(name),dict) else {}
+    rec={};status=section('smart_status').get('passed')
+    if type(status) is bool:rec['SMART health']='Passed' if status else 'FAILED'
+    for key,value in [('Temperature (°C)',section('temperature').get('current')),('Power-on hours',section('power_on_time').get('hours'))]:
         if value is not None:rec[key]=value
-    nvme=data.get('nvme_smart_health_information_log',{})
+    nvme=section('nvme_smart_health_information_log')
     for source,key in [('percentage_used','Rated endurance consumed (%)'),('media_errors','Media / data errors'),('critical_warning','NVMe critical warning flags'),('available_spare','Available spare (%)')]:
         if source in nvme:rec[key]=nvme[source]
-    attrs={a.get('id'):a for a in data.get('ata_smart_attributes',{}).get('table',[])}
+    table=section('ata_smart_attributes').get('table') or []
+    if not isinstance(table,list):table=[]
+    attrs={a.get('id'):a for a in table if isinstance(a,dict)}
     for ident,label in [(5,'Reallocated sectors'),(197,'Pending sectors'),(198,'Uncorrectable sectors')]:
-        value=attrs.get(ident,{}).get('raw',{}).get('value')
+        raw=attrs.get(ident,{}).get('raw') or {}
+        value=raw.get('value') if isinstance(raw,dict) else None
         if value is not None:rec[label]=value
     return rec
 
@@ -42,10 +45,21 @@ class StorageCollector(Collector):
         try:return json.loads(out or '{}').get('blockdevices',[])
         except ValueError:return []
     def _flatten_devices(self,devices,parent=None):
-        flat=[]
-        for dev in devices:
-            dev=dict(dev);kids=dev.pop('children',[]);dev['parent']=parent;flat.append(dev)
-            flat.extend(self._flatten_devices(kids,dev.get('path')))
+        flat=[];seen={}
+        def visit(items, parent):
+            for item in items if isinstance(items,list) else []:
+                if not isinstance(item,dict): continue
+                dev=dict(item);kids=dev.pop('children',[]);path=dev.get('path')
+                if path and path in seen:
+                    existing=seen[path]
+                    if parent and parent != existing.get('parent'):
+                        existing.setdefault('other_parents',[])
+                        if parent not in existing['other_parents']: existing['other_parents'].append(parent)
+                else:
+                    dev['parent']=parent;flat.append(dev)
+                    if path:seen[path]=dev
+                visit(kids,path)
+        visit(devices,parent)
         return flat
     def _sys_disks(self):
         devices=[]
@@ -57,7 +71,7 @@ class StorageCollector(Collector):
             devices.append({'name':name,'path':'/dev/'+name,'type':'part' if is_partition else 'disk',
                 'parent':'/dev/'+Path(p).resolve().parent.name if is_partition else None,
                 'size':int(size*512) if size is not None else None,'model':read_file(p+'/device/model'),
-                'vendor':read_file(p+'/device/vendor'),'rota':read_file(p+'/queue/rotational')=='1',
+                'vendor':read_file(p+'/device/vendor'),'rota':{'1':True,'0':False}.get(read_file(p+'/queue/rotational')),
                 'tran':'nvme' if name.startswith('nvme') else 'usb' if '/usb' in str(Path(p).resolve()) else None})
         return devices
     def collect(self):
@@ -73,7 +87,10 @@ class StorageCollector(Collector):
         r.add('Software loop devices',sum(d.get('type')=='loop' for d in all_devices),advanced=True)
         for d in physical:
             name=d.get('name','');transport=d.get('tran') or ('nvme' if name.startswith('nvme') else None)
-            drive_type='NVMe SSD' if transport=='nvme' else ('SATA ' if transport=='sata' else 'USB ' if transport=='usb' else '')+('HDD' if d.get('rota') else 'SSD / flash storage')
+            rotational = d.get('rota')
+            if isinstance(rotational,str): rotational={'1':True,'0':False,'true':True,'false':False}.get(rotational.lower())
+            drive_type='NVMe SSD' if transport=='nvme' else ('SATA ' if transport=='sata' else 'USB ' if transport=='usb' else '')+(
+                'HDD' if rotational == 1 else 'SSD / flash storage' if rotational == 0 else 'Storage (rotational type not reported)')
             if d.get('type')=='rom':drive_type='Optical drive'
             rec={'kind':'disk','name':d.get('model','').strip() if isinstance(d.get('model'),str) and d.get('model').strip() else name,
                 'model':meaningful(d.get('model')),'device':d.get('path'),'drive_type':drive_type,'connection':transport.upper() if transport else 'Not reported',
@@ -95,12 +112,17 @@ class StorageCollector(Collector):
                 'name':d.get('name'),'device':d.get('path'),'parent':d.get('parent'),
                 'capacity':capacity_label(d.get('size')),'filesystem':d.get('fstype'),'mountpoint':d.get('mountpoint'),
                 'uuid':d.get('uuid'),'partuuid':d.get('partuuid'),'filesystem_label':d.get('label'),
-                'fstab_entries':match_fstab(d,fstab),'advanced':not primary}
+                'fstab_entries':match_fstab(d,fstab),'other_parents':d.get('other_parents'),'advanced':not primary}
             if primary and not rec['uuid']:
                 rec['uuid_note']='No UUID reported in the system inventory; this partition may have no filesystem or need read permission'
             r.add_record(rec)
         for part in psutil.disk_partitions(all=False):
             if part.device.startswith('/dev/loop') or part.fstype in ('squashfs','tmpfs','overlay'):continue
+            if part.fstype in ('nfs','nfs4','cifs','smbfs','sshfs','fuse.sshfs','9p','ceph','glusterfs','afs','davfs'):
+                r.add_record({'kind':'filesystem','name':part.mountpoint,'device':part.device,
+                    'mountpoint':part.mountpoint,'filesystem':part.fstype,'advanced':True,
+                    'usage_note':'Remote filesystem: space query skipped to avoid blocking hardware collection'})
+                continue
             try:usage=psutil.disk_usage(part.mountpoint)
             except OSError:continue
             r.add_record({'kind':'filesystem','name':part.mountpoint,'device':part.device,'mountpoint':part.mountpoint,

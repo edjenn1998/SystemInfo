@@ -16,7 +16,9 @@ def memory_inventory(sections):
     array_sections=[s for s in sections if s['type']==16 and s['fields'].get('Use','System Memory')=='System Memory']
     arrays=[s['fields'] for s in array_sections]
     handles={s.get('handle','').lower() for s in array_sections if s.get('handle')}
-    devices=[s['fields'] for s in sections if s['type']==17 and (not handles or s['fields'].get('Array Handle','').lower() in handles)]
+    has_arrays = any(s['type'] == 16 for s in sections)
+    devices=[s['fields'] for s in sections if s['type']==17 and
+             (not has_arrays or s['fields'].get('Array Handle','').lower() in handles)]
     modules=[]
     for d in devices:
         size=d.get('Size','Unknown');lower=size.lower()
@@ -34,7 +36,7 @@ def memory_inventory(sections):
     populated=sum(m['populated'] is True for m in modules) if modules and all(m['populated'] is not None for m in modules) else None
     empty=sum(m['populated'] is False for m in modules) if modules and all(m['populated'] is not None for m in modules) else None
     if count is not None and len(modules)!=count: populated=empty=None
-    onboard=any((m.get('form_factor') or '').lower() in ('row of chips','die') for m in modules)
+    onboard=any((m.get('form_factor') or '').lower() in ('chip','row of chips','die') for m in modules)
     return count,populated,empty,onboard,modules
 
 class MemoryCollector(Collector):
@@ -64,13 +66,14 @@ class MemoryCollector(Collector):
         r.add('Memory inventory status',inventory_status)
         if count is not None:r.add('Memory banks reported',count)
         if count is not None:
-            capacity=0;known_capacity=True
+            capacity=0;known_capacity=len(modules)==count
             for mod in modules:
                 if mod.get('populated') is False:continue
                 match=re.fullmatch(r'(\d+)\s+(kB|MB|GB|TB)',mod.get('size',''),re.I)
-                if not match:known_capacity=False;break
+                if not match:known_capacity=False;continue
                 capacity+=int(match[1])*{'kb':1024,'mb':1024**2,'gb':1024**3,'tb':1024**4}[match[2].lower()]
             if known_capacity and capacity:r.add('Installed RAM (firmware)',round(capacity/1024**3,2),'GiB')
+            elif capacity:r.add('Reported module capacity (incomplete inventory)',round(capacity/1024**3,2),'GiB')
             r.add('Banks populated',used if used is not None else 'Firmware inventory incomplete')
             r.add('Banks empty',empty if empty is not None else 'Firmware inventory incomplete')
             r.add('Memory layout','Onboard / soldered chips' if onboard else 'See reported form factors below; firmware banks do not prove upgradeable slots')

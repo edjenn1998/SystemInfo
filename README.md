@@ -1,138 +1,248 @@
-# System Info 1.2 — personal hardware information and troubleshooting
+# System Info 1.3.0
 
-Download **SystemInfo-1.2-Linux-x86_64**, enable Properties → Permissions →
-Allow executing as a program, and double-click it. Python, Qt, psutil, and a
-Wi-Fi querying fallback are bundled. The first launch may take a moment while
-its libraries unpack into a private temporary directory.
+A read-only Linux hardware information and troubleshooting utility. Explore your
+processor, memory, motherboard/BIOS, drives, graphics, network, battery and sensors,
+then copy or export a report. No account or upload is required.
 
-    chmod +x SystemInfo-1.2-Linux-x86_64
-    ./SystemInfo-1.2-Linux-x86_64
+![System Info displaying illustrative hardware data](assets/screenshot.png)
 
-This executable targets Intel/AMD x86-64 GNU/Linux. Its bundled ELF libraries
-were audited to require glibc 2.30 or newer. The GUI and CLI were tested on the
-build system; this is not a guarantee of operation on every distribution.
-A graphical desktop and standard graphics drivers are required for the GUI.
-ARM and musl-based distributions such as Alpine require separate native builds.
-Hardware collection adapts to available Linux interfaces and tools; it does not
-assume a particular computer model. Missing firmware data remains unavailable.
+*The screenshot uses illustrative test data, not a claimed reading from your computer.*
 
-## What changed
+## Download and run an AppImage — start here
 
-- Overview: computer identity, OS, CPU/core layout, RAM, BIOS, installed drives,
-  graphics, network, battery, key temperatures and readings that warrant attention.
-- Processor: turbo/boost control, driver-reported maximum clock (including boost
-  where the driver exposes it), frequency limits, governor and current usage.
-  A reported maximum is not a promise of sustained/all-core frequency.
-- Memory: usable RAM, installed capacity and firmware banks when readable,
-  populated/empty counts, manufacturer, part number, type, rated/configured speed,
-  form factor and rank. Soldered devices are not described as upgrade slots.
-  Live CL/tRCD/tRP/tRAS timings are not supported by this app. Firmware
-  authorization does not unlock timings. Access errors and missing firmware
-  inventory are reported separately.
-- Motherboard / BIOS: manufacturer, model, revision, BIOS version/date, boot mode,
-  Secure Boot when readable, and protected system/board identifiers.
-- Storage: physical drives and type (NVMe, SATA, USB, SSD/HDD), model, capacity,
-  firmware and available health readings. Partitions and logical volumes appear
-  beneath their drive with filesystem UUID, PARTUUID, label, mount points and
-  matching `/etc/fstab` entries. Loop devices remain technical details.
-  fstab mount options are never collected because they can contain credentials.
-- Graphics: adapters separated from displays. Unused connectors are technical
-  details and are never counted as additional GPUs. Supported/preferred display
-  modes are not mislabeled as the current desktop resolution.
-- Network: physical Wi-Fi/Ethernet and Bluetooth, adapter/driver identity, Wi-Fi
-  link rate, signal, SSID and traffic errors where available. Loopback and VPN
-  interfaces are technical details. AP advertised rate is labeled separately
-  when the negotiated link rate cannot be obtained. Link rate is not a speed test.
-- Power / Battery: power source, charge, status, manufacturer/model, full/design
-  capacity, health/wear, cycle count, volts/amps/watts and runtime estimate.
-  Health is full capacity divided by design capacity, not current charge.
-- Devices: connected and built-in USB devices first; hubs and controller plumbing
-  stay in the technical view.
-- Sensors: useful labeled readings, with duplicate Dell driver readings moved
-  to the technical view. A zero-RPM fan can be stopped normally.
+### 1. Download the application
 
-JSON export includes collected technical data. Export privacy is enabled by
-default and hides UUIDs, fstab identifiers, network addresses, SSIDs and serials.
-Disable export privacy if your troubleshooting report needs these identifiers.
-It cannot guarantee that every vendor-supplied free-form string is anonymous.
+Open [the latest release](https://github.com/edjenn1998/SystemInfo/releases/latest),
+expand **Assets**, and download **`SystemInfo-1.3.0-x86_64.AppImage`**.
+GitHub's “Source code” ZIP/tar downloads are for developers.
 
-## Read protected hardware details
+The AppImage includes Python, Qt, psutil and a Wi-Fi query fallback. It targets
+**64-bit Intel/AMD Linux with glibc 2.35 or newer**, such as Ubuntu 22.04 and newer,
+with a graphical desktop. It is not a Windows/macOS executable or an ARM/Raspberry
+Pi or Alpine/musl build. The release includes its actual native ABI audit.
 
-Click **Read memory / BIOS details** for memory bank and protected BIOS
-information. Your desktop's authorization agent may ask for your administrator
-password. The operation reads only `/sys/firmware/dmi/tables/DMI` with the system
-`cat` executable and decodes SMBIOS inside the app. The GUI stays unprivileged.
-If direct reading fails, a trusted system `dmidecode` may be used as a fallback.
-It does not edit firmware or probe memory buses.
-The inventory stays in memory for the session; opening the app again may require
-another read. Firmware that omits a field cannot be made to report it.
+**Compatibility change:** version 1.3.0 uses a maintained Ubuntu 22.04 build
+baseline. The older v1.2 executable had an audited minimum of glibc 2.30 and remains
+in its original release, but does not contain these new fixes.
 
-Desktop authorization uses `pkexec` (polkit). On a system without a desktop
-polkit agent or exposed SMBIOS table, this operation cannot obtain the data.
-Normal collection still works.
+### 2. Allow it to run
 
-## Read drive health
+An AppImage is a portable application file. You can keep it in Downloads or move
+it into an `Applications` folder in your home directory.
 
-Click **Read drive health**, select an installed drive, and authorize the
-read-only `smartctl -j -a` command. This requires the system `smartmontools`
-package; on Debian/Ubuntu it can be installed with:
+On Ubuntu and many other Linux desktops:
 
-    sudo apt install smartmontools
+1. Right-click the AppImage and choose **Properties**.
+2. Open **Permissions** and enable **Allow executing file as program**. Other
+   file managers may call this **Executable as Program**.
+3. Close Properties and double-click it. Choose **Run** if prompted.
 
-The report includes supported SMART status, temperature, hours, NVMe endurance
-usage/errors and SATA reallocated/pending/uncorrectable counts. Some USB bridges
-or controllers do not expose SMART. Protected health readings are cached for
-this session; click the button again to update them. No self-test, write or repair
-command is run. Firmware details and SMART reads use trusted system binaries,
-never an elevated copy of the bundled Python executable.
+You do **not** need to install Python or run the app with `sudo`. The first launch
+may take a moment. An application-menu entry is not installed automatically;
+launch the same file again when you want to use it.
 
-## Source, tests and build
+### Terminal alternative
 
-Python 3.10+ (3.12 recommended):
+Open a terminal in the download's folder (in Ubuntu Files, right-click the folder
+background and choose **Open in Terminal**):
 
-    python3 -m venv .venv
-    . .venv/bin/activate
-    python3 -m pip install -r requirements.txt
-    python3 launch_system_info.py
-    python3 -m unittest discover -s tests -v
+```sh
+chmod +x ./SystemInfo-1.3.0-x86_64.AppImage
+./SystemInfo-1.3.0-x86_64.AppImage
+```
 
-CLI:
+Use the actual filename you downloaded. `./` means “run this file in the current
+folder.” If you see “No such file,” check the filename and terminal folder.
 
-    python3 launch_system_info.py --cli --json
-    python3 launch_system_info.py --cli overview
-    python3 launch_system_info.py --cli cpu memory
-    python3 launch_system_info.py --cli --list
+### If launching fails: no-FUSE mode
 
-Use `./build.sh` to build on a compatible Linux system. The bundled iw binary
-needs libnl when running directly from source; install `iw` from your distribution
-instead if needed. The standalone build includes its libnl dependencies.
+This release uses a modern, statically linked AppImage runtime. **You do not need
+to install the older `libfuse2` or `libfuse2t64` package.** Normal launching uses
+the kernel's FUSE mount facility. If your system restricts mounting, or you see a
+FUSE or permission error, use the built-in no-FUSE launch mode:
 
-Tests cover firmware bank decoding and truncated input, physical-drive filtering,
-one GPU versus seven connectors, battery unit/health calculations, turbo controls,
-Wi-Fi rates, command validation, redaction and GUI behavior. Protected reads are
-tested with fixtures; actual firmware permissions and battery data must be verified
-on the target computer.
+```sh
+./SystemInfo-1.3.0-x86_64.AppImage --appimage-extract-and-run
+```
 
-## Third-party components
+This extracts the app to a temporary folder, runs it and cleans up afterward.
+Allow enough free temporary space. No FUSE package installation or administrator
+access is required. If the download is on a filesystem that prohibits executable
+files, move the AppImage to your home folder first.
 
-Application version: 1.2.0. Third-party license texts/notices are included in `licenses.tar.xz`.
-Qt/PySide6 uses LGPLv3/GPLv3 or commercial licensing; psutil uses BSD-3-Clause;
-PyInstaller has a bootloader distribution exception; iw and xcb-cursor have
-permissive licenses. Review licenses and choose a license for your own application
-before public distribution. Rebuildable source and dependency versions are included.
+For an extracted copy you can keep:
 
-## Portable release build
+```sh
+./SystemInfo-1.3.0-x86_64.AppImage --appimage-extract
+./squashfs-root/AppRun
+```
 
-The release uses CPython 3.12.15 from python-build-standalone (20261003),
-PySide6_Essentials 6.8.3, psutil 7.2.2 and PyInstaller 6.22.3.
-`compatibility/manifest.json` records SHA256-verified Debian bullseye packages.
-Extract those packages with `dpkg-deb -x` into a compatibility root, install
-the pinned dependencies into a standalone-Python virtual environment, then run:
+A message mentioning a newer `GLIBC` version means the distribution is too old for
+this build; installing FUSE will not fix that. For other startup issues, run from
+a terminal and include the error text and your Linux version in a
+[GitHub issue](https://github.com/edjenn1998/SystemInfo/issues).
 
-    SYSTEM_INFO_COMPAT_ROOT=/path/to/root LD_LIBRARY_PATH=/path/to/root/usr/lib/x86_64-linux-gnu:/path/to/root/lib/x86_64-linux-gnu python -m PyInstaller --clean --noconfirm --workpath /tmp/system-info-build --distpath /tmp/system-info-dist SystemInfo-portable.spec
+### Updates, removal and optional verification
 
-Use `SYSTEM_INFO_BUILD_MODE=onedir` for an inspectable build and run
-`scripts/audit_linux_abi.py` on that directory. `compatibility/abi-audit.json`
-records the release dependency audit. `build.sh` instead makes a native build;
-its minimum glibc depends on the machine used to build it. For broad
-distribution, build on an older supported baseline and test target desktops.
+Updates are manual: download the new AppImage, make it executable and use it in
+place of the older file. Delete the AppImage to remove the application, plus any
+`squashfs-root` folder you explicitly extracted. Reports you saved elsewhere remain
+where you saved them. Preferences use `~/.config/edjenn1998/SystemInfo.conf` on Linux;
+protected hardware inventories stay in memory for the current session only.
+
+Optional: download `SHA256SUMS` beside the release files and verify integrity:
+
+```sh
+sha256sum --ignore-missing --check SHA256SUMS
+```
+
+The AppImage should report **OK**. This checks download integrity, not publisher identity.
+
+## Using System Info
+
+- **Overview** summarizes the computer, OS, CPU/core layout, RAM, drives, graphics,
+  network, battery, useful temperatures and observations from available readings.
+- Other tabs provide the detailed category inventories.
+- **Search this tab…** filters the hierarchy while retaining matching parents.
+- **Show technical details** reveals virtual devices, lower-level identifiers,
+  extra records and unavailable fields. Reports include collected technical data
+  even when the technical view is off.
+- **Refresh** takes a new snapshot. **Auto** optionally refreshes every 5–60 seconds;
+  it starts Off and never launches overlapping collections.
+- **Cancel** stops normal collection at the next checkpoint and keeps the last
+  complete report. Some operating-system/driver reads can delay stopping. Protected
+  reads use their desktop authorization dialog to cancel; normal Cancel is disabled
+  during those reads.
+- **Copy report** copies a text report. **Export report…** saves JSON or text.
+  Exports are written through a private temporary file and committed atomically,
+  preserving an existing report if writing fails before replacement.
+- **About / tools** lists the app/runtime versions and availability of optional
+  inventory utilities. Missing tools and unexposed hardware data are normal on
+  some machines; they do not imply a broken computer.
+
+Refreshes preserve the active tab and expanded/collapsed groups. Window size and
+technical-view preference are remembered. Export privacy starts enabled on each launch.
+
+## Report privacy
+
+**Hide identifying details in exported / copied reports** is enabled by default.
+The same handling applies to JSON, text and copied reports: known serials, UUIDs,
+user/host names, network addresses, SSIDs, filesystem labels, mount points and fstab
+identifiers are hidden, including nested values and known copies in summary text.
+The on-screen hardware view is not anonymized by this export checkbox.
+
+Clear the checkbox only when you want those identifiers in your report. The CLI
+also hides known identifiers by default; use `--include-identifiers` explicitly
+when you need them. Export metadata records which mode was used. Missing values
+remain missing rather than being presented as a hidden reading.
+
+This is best-effort redaction, **not a guarantee of anonymity**: vendor/model and
+other free-form text can still identify a machine. Review a report before sharing
+it. fstab mount options are never collected because they may contain credentials;
+URI credentials are scrubbed even in identifier-included exports. Files are not
+uploaded anywhere by the application.
+
+## Hardware interpretation
+
+- CPU maximum clock is a driver-reported ceiling, including boost when exposed;
+  it is not a promise of sustained/all-core speed.
+- Memory bank counts describe firmware devices, possibly soldered chips, rather
+  than proving user-upgradeable slots. Incomplete bank data is labeled as partial
+  capacity; video-memory arrays are not counted as system RAM.
+- **Live CL/tRCD/tRP/tRAS memory timings are not supported.** Firmware authorization
+  does not unlock them. Missing permissions and missing firmware fields are reported
+  separately.
+- Drive types use reported transport/rotation data; an unknown rotation flag is
+  not assumed to be an SSD. Shared logical volumes are listed once, with additional
+  parents noted. Remote filesystem space queries are skipped to avoid stalled
+  network mounts blocking hardware collection.
+- Graphics adapters and displays are separate. Preferred/supported modes are not
+  mislabeled as current desktop resolution. Current resolution may be unavailable
+  on some Wayland/compositor setups.
+- Wi-Fi link rate describes the radio connection, not internet throughput. The
+  access point's advertised rate is labeled separately from negotiated speed.
+- Battery health is full capacity divided by original design capacity, not current
+  charge. Available capacity/runtime can still be shown when design data is missing.
+- Sensor names come from drivers; 0 RPM can be normal. No flagged observations
+  means only that the available readings did not trigger these checks, not that a
+  comprehensive diagnostic test passed.
+
+## Optional protected reads
+
+### Memory / BIOS details
+
+Click **Read memory / BIOS details** to request protected firmware inventory.
+Your desktop authorization agent may ask for your administrator password. The
+GUI remains unprivileged: it asks the system `pkexec` to run a trusted system `cat`
+against the fixed `/sys/firmware/dmi/tables/DMI` path, then decodes SMBIOS in the app.
+A trusted system `dmidecode` can be used as a fallback. No firmware is edited and
+memory buses are not probed. Missing firmware fields cannot be manufactured by
+granting permission. The inventory is cached only for the current session.
+
+### Drive health
+
+Click **Read drive health**, select a visible supported drive and authorize the
+fixed read-only `smartctl -j -a` query. Install the system `smartmontools` package
+if needed; on Ubuntu/Debian:
+
+```sh
+sudo apt install smartmontools
+```
+
+The app can show supported SMART status, temperature, hours, endurance/error
+metrics and sector counts. A nonzero smartctl bitmask can still contain useful
+health data. Some USB bridges, controllers and virtual machines do not expose it.
+No self-test, repair or write command is run. Protected results are cached for the
+session; use the button again to update them.
+
+Both operations need `pkexec` and a working desktop polkit authorization agent.
+They use trusted **system executables**, never an elevated bundled Python or iw.
+System library paths are restored before invoking system tools. Collection and
+saved-report export still work when protected access is unavailable or declined.
+
+## Headless CLI
+
+```sh
+./SystemInfo-1.3.0-x86_64.AppImage --cli --list
+./SystemInfo-1.3.0-x86_64.AppImage --cli overview
+./SystemInfo-1.3.0-x86_64.AppImage --cli cpu memory --json
+./SystemInfo-1.3.0-x86_64.AppImage --cli --json --output report.json
+./SystemInfo-1.3.0-x86_64.AppImage --cli --json --include-identifiers
+./SystemInfo-1.3.0-x86_64.AppImage --cli overview --sequential --progress
+```
+
+Add `--appimage-extract-and-run` before `--cli` if needed. With source, replace
+the AppImage prefix with `python launch_system_info.py`. `--output` writes JSON
+when `--json` is selected and text otherwise; choose an existing output folder.
+Progress goes to stderr, keeping JSON stdout parseable. Ctrl+C cancels normal
+collection; incomplete report files are discarded. CLI use does not request
+protected desktop authorization.
+
+## Source, tests and builds
+
+Use **Python 3.12** for development/release builds; pinned Qt does not support
+Python 3.14. On Ubuntu, source operation may need `python3.12-venv`, `libegl1`,
+`libgl1`, `libxcb-cursor0` and `libxkbcommon-x11-0`. Ubuntu 22.04 does not provide
+Python 3.12 by default; the AppImage is the simplest setup there.
+
+```sh
+python3.12 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python launch_system_info.py
+QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -v
+QT_QPA_PLATFORM=offscreen python launch_system_info.py --self-test
+```
+
+The suite has **88 tests**. Protected reads are checked with fixtures/mocks;
+automated tests do not request administrator authorization. The packaged self-test
+uses illustrative hardware data for deterministic GUI, search, icon and report
+checks. Actual battery/firmware/drive permissions and driver support still need
+verification on the target computer.
+
+See [APPIMAGE.md](APPIMAGE.md) for pinned native/AppImage builds,
+[AUDIT.md](AUDIT.md) for review findings, and [CHANGELOG.md](CHANGELOG.md) for changes.
+GitHub Actions tests and builds on Ubuntu 22.04. Original code is **GPL-3.0**;
+see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md) for current third-party notices.
+The older compatibility manifests, vendor binaries and license archive describe
+version 1.2 only; current notices and ABI/dependency records accompany each release.

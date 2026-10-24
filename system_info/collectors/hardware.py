@@ -1,5 +1,6 @@
 """Sensor readings, with duplicate readings retained only in technical view."""
 import glob
+import math
 from .base import Collector, read_file
 class HardwareCollector(Collector):
     name='hardware';title='Sensors'
@@ -12,12 +13,15 @@ class HardwareCollector(Collector):
                     raw=read_file(f)
                     try:value=round(float(raw)/scale,2)
                     except (ValueError,TypeError):continue
+                    if not math.isfinite(value): continue
                     base=f.rsplit('_',1)[0];label=read_file(base+'_label') or base.rsplit('/',1)[-1]
                     friendly='CPU' if chip in ('coretemp','k10temp','zenpower') else 'NVMe drive' if chip=='nvme' else 'Wi-Fi' if chip.startswith('iwlwifi') else chip
                     rec={'kind':'sensor','name':friendly+' • '+label,'chip':chip,'label':label,'value':value,'unit':unit}
                     limit=read_file(base+'_crit')
                     if limit and unit=='°C':
-                        try:rec['critical_limit_C']=round(float(limit)/1000,1)
+                        try:
+                            critical = round(float(limit)/1000,1)
+                            if math.isfinite(critical): rec['critical_limit_C'] = critical
                         except ValueError:pass
                     items.append(rec)
         # Dell exposes some of the same readings through two drivers. Keep the

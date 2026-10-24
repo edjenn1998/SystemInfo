@@ -38,10 +38,10 @@ def edid_details(path):
 
 def x11_modes():
     if os.environ.get('XDG_SESSION_TYPE')!='x11':return {}
-    modes={};current=None
+    modes={}
     for line in (run_cmd(['xrandr','--current']) or '').splitlines():
-        match=re.match(r'(\S+) connected(?: primary)? (\d+x\d+)\+',line)
-        if match:modes[match[1]]=match[2];current=match[1]
+        match=re.match(r'(\S+) connected(?: primary)? (\d+x\d+)[+-]\d+[+-]\d+',line)
+        if match:modes[match[1]]=match[2]
     return modes
 
 class GpuCollector(Collector):

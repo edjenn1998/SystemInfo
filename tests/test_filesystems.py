@@ -5,7 +5,7 @@ from system_info.collectors.storage import StorageCollector
 from system_info.collectors.memory import MemoryCollector
 from system_info.app import SystemInfoApp
 from system_info.gui import Window,safe_report
-from system_info.core import CategoryResult,SystemSnapshot
+from system_info.core import SystemSnapshot
 from test_gui import APP
 
 class FilesystemTests(unittest.TestCase):
@@ -26,7 +26,7 @@ class FilesystemTests(unittest.TestCase):
             cat=StorageCollector().collect()
         part=next(r for r in cat.records if r['kind']=='partition');self.assertEqual(part['uuid'],'example-uuid');self.assertEqual(part['parent'],'/dev/sda');self.assertFalse(part['advanced']);self.assertTrue(part['fstab_entries'])
         snap=SystemSnapshot();snap.add(cat);w=Window(auto_collect=False);w.show_result(snap)
-        tree=w.trees[0];drive=tree.topLevelItem(2).child(0) if tree.topLevelItemCount()>2 else None
+        APP.processEvents();tree=w.trees[0]
         group=next(tree.topLevelItem(i) for i in range(tree.topLevelItemCount()) if tree.topLevelItem(i).text(0)=='Installed drives')
         disk=group.child(0);node=next(disk.child(i) for i in range(disk.childCount()) if disk.child(i).text(0)=='sda1')
         uuids=[node.child(i) for i in range(node.childCount()) if node.child(i).text(0)=='Filesystem / container UUID']

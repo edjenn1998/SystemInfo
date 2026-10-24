@@ -1,0 +1,16 @@
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+build/
+dist/
+deliverables/
+reports/
+*.AppImage
+*.AppDir/
+.env
+.env.*
+!.env.example
+*.log

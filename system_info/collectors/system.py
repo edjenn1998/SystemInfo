@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import os
 import platform
-import socket
 import time
 
 import psutil
 
-from .base import Collector, read_file, run_cmd, which
+from .base import Collector, read_file, run_process, which
 
 
 def _os_release() -> dict[str, str]:
@@ -96,12 +95,9 @@ class SystemCollector(Collector):
         if os.path.exists("/.dockerenv"):
             return "docker"
         if which("systemd-detect-virt"):
-            import subprocess
-            try:
-                proc=subprocess.run(["systemd-detect-virt"],capture_output=True,text=True,timeout=3)
-                if proc.returncode==0:return proc.stdout.strip()
-                if proc.returncode==1:return "No virtualization detected"
-            except (OSError,subprocess.TimeoutExpired):pass
+            proc = run_process(["systemd-detect-virt"], timeout=3)
+            if proc is not None and proc.returncode==0:return proc.stdout.strip()
+            if proc is not None and proc.returncode==1:return "No virtualization detected"
         return "Not reported"
 
 

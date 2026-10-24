@@ -1,21 +1,41 @@
-# Build with the pinned standalone Python and verified compatibility libraries.
+"""Maintained onedir payload shared by native and AppImage builds."""
+import ctypes.util
+import json
 import os
+import shutil
+import subprocess
 from pathlib import Path
-root=Path(os.environ['SYSTEM_INFO_COMPAT_ROOT'])
-paths=[root/'lib/x86_64-linux-gnu',root/'usr/lib/x86_64-linux-gnu']
-binaries=[]
-for path in paths:
-    for file in sorted(path.glob('*.so*')):
-        if file.is_file() and file.name not in ('libc.so.6','libm.so.6','libpthread.so.0','libdl.so.2','librt.so.1','ld-linux-x86-64.so.2'):
-            binaries.append((str(file),'.'))
-binaries.append((str(root/'sbin/iw' if (root/'sbin/iw').exists() else root/'usr/sbin/iw'),'bundled_tools'))
-a=Analysis(['launch_system_info.py'],pathex=[],binaries=binaries,datas=[],hiddenimports=[],hookspath=[],hooksconfig={},runtime_hooks=[],excludes=[],noarchive=False)
-# Network/TLS and VNC plugins are not used by this local QtWidgets application.
-# Exclude their optional host OpenSSL3 dependency rather than bundling a newer ABI.
-a.binaries=[entry for entry in a.binaries if not (entry[0] in ('libcrypto.so.3','libssl.so.3') or '/tls/' in entry[0] or entry[0].endswith('/libqvnc.so'))]
-pyz=PYZ(a.pure)
-if os.environ.get('SYSTEM_INFO_BUILD_MODE')=='onedir':
-    exe=EXE(pyz,a.scripts,[],exclude_binaries=True,name='SystemInfo-1.2-Linux-x86_64',debug=False,strip=False,upx=False,console=True)
-    coll=COLLECT(exe,a.binaries,a.datas,strip=False,upx=False,name='SystemInfo-1.2-Linux-x86_64')
-else:
-    exe=EXE(pyz,a.scripts,a.binaries,a.datas,[],name='SystemInfo-1.2-Linux-x86_64',debug=False,bootloader_ignore_signals=False,strip=False,upx=False,console=True)
+
+project = Path(SPECPATH)
+build_root = Path(os.environ.get('SYSTEM_INFO_BUILD_ROOT', '/tmp/system-info-build'))
+cache = subprocess.check_output(['ldconfig', '-p'], text=True).splitlines()
+
+
+def library(name, soname):
+    found = ctypes.util.find_library(name) or soname
+    for line in cache:
+        if line.strip().startswith(found + ' '): return line.split('=>', 1)[1].strip()
+    for folder in os.environ.get('LD_LIBRARY_PATH', '').split(':'):
+        if folder and (Path(folder) / soname).is_file(): return str(Path(folder) / soname)
+    raise RuntimeError(f'Install the system {name} shared library before building')
+
+
+# Bundle neutral GL dispatch libraries, not vendor-specific graphics drivers.
+native = [library(name, soname) for name, soname in (
+    ('EGL','libEGL.so.1'), ('GL','libGL.so.1'), ('GLX','libGLX.so.0'), ('GLdispatch','libGLdispatch.so.0'))]
+iw = os.environ.get('SYSTEM_INFO_IW') or shutil.which('iw')
+if not iw or not Path(iw).is_file():
+    raise RuntimeError('Install the system iw package for the bundled Wi-Fi fallback')
+a = Analysis(
+    [str(project / 'launch_system_info.py')], pathex=[str(project)],
+    binaries=[(path, '.') for path in native] + [(iw, 'bundled_tools')],
+    datas=[(str(project / 'LICENSE'), '.'), (str(project / 'assets/system-info.svg'), 'assets')],
+    excludes=['tkinter','PySide6.QtWebEngineCore','PySide6.QtQml','PySide6.QtQuick'],
+    noarchive=False,
+)
+build_root.mkdir(parents=True, exist_ok=True)
+(build_root / 'native-sources.json').write_text(json.dumps([item[1] for item in a.binaries], indent=2))
+pyz = PYZ(a.pure)
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='SystemInfo',
+          debug=False, strip=False, upx=False, console=True)
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='SystemInfo')

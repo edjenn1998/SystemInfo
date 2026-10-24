@@ -32,6 +32,8 @@ def overview(snapshot):
                 if isinstance(fs.get('used_percent'),(int,float)) and fs['used_percent']>=90:r.add_record({'kind':'observation','name':'Storage nearly full','detail':f'{fs.get("mountpoint","Volume")} is {fs["used_percent"]}% used'})
         for d in disks:
             if d.get('SMART health')=='FAILED':r.add_record({'kind':'observation','name':'Drive reports a SMART failure','detail':d.get('name')})
+            elif isinstance(d.get('NVMe critical warning flags'),(int,float)) and d['NVMe critical warning flags']:
+                r.add_record({'kind':'observation','name':'Drive reports an NVMe warning','detail':d.get('name')})
     if gpus:
         physical=[g for g in gpus.records if g.get('kind')=='gpu'];r.add('Graphics adapters',len(physical))
         for g in physical:r.add('Graphics',g.get('name'));r.add('Graphics driver',g.get('driver'))
@@ -52,7 +54,7 @@ def overview(snapshot):
         for s in sensors.records:
             if s.get('unit')=='°C' and (s.get('label') in ('Package id 0','Tctl','Tdie','Composite')) and s.get('chip') in ('coretemp','k10temp','nvme'):
                 r.add(s.get('name',s.get('label')),s.get('value'),'°C')
-            if s.get('critical_limit_C') is not None and s.get('value',0)>=s['critical_limit_C']:r.add_record({'kind':'observation','name':'Sensor at or above its critical limit','detail':s.get('name')})
+            if isinstance(s.get('critical_limit_C'),(int,float)) and isinstance(s.get('value'),(int,float)) and s['value']>=s['critical_limit_C']:r.add_record({'kind':'observation','name':'Sensor at or above its critical limit','detail':s.get('name')})
     for cat in snapshot.categories:
         if cat.note and 'Some information could not be collected' in cat.note:r.add_record({'kind':'observation','name':cat.title+' collection incomplete','detail':cat.note})
     if not any(d.get('kind')=='observation' for d in r.records):r.add('Troubleshooting observations','No issues flagged by the available readings; this is not a full diagnostic test')

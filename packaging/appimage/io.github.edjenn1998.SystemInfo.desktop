@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=System Info
+Comment=Read hardware information and export troubleshooting reports
+Exec=AppRun
+Icon=io.github.edjenn1998.SystemInfo
+Terminal=false
+Categories=System;Utility;Qt;
+StartupWMClass=SystemInfo

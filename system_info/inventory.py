@@ -1,10 +1,14 @@
 """Read-only shared inventory helpers. Firmware text is cached for one collection."""
 import re
-from pathlib import Path
-from .collectors.base import read_file, run_cmd
+import math
+from .collectors.base import read_file
 
 DMI_TYPES = '0,1,2,3,4,16,17'
 UNKNOWN = {'', 'unknown', 'not specified', 'not provided', 'none', 'to be filled by o.e.m.', 'default string'}
+
+def valid_drive_path(device):
+    return isinstance(device, str) and bool(re.fullmatch(
+        r'/dev/(?:nvme\d+n\d+|sd[a-z]+|hd[a-z]+|mmcblk\d+|vd[a-z]+|xvd[a-z]+|sr\d+)', device))
 
 def meaningful(value):
     return value if value is not None and str(value).strip().lower() not in UNKNOWN else None
@@ -28,8 +32,10 @@ def get_dmi(context):
 
 def numeric(path):
     value = read_file(str(path))
-    try: return float(value) if value is not None else None
-    except ValueError: return None
+    try:
+        number = float(value) if value is not None else None
+        return number if number is not None and math.isfinite(number) else None
+    except (ValueError, TypeError): return None
 
 def capacity_label(size):
     if size is None: return 'Not reported'

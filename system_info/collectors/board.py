@@ -30,7 +30,7 @@ class BoardCollector(Collector):
             secure=None
             for f in glob.glob('/sys/firmware/efi/efivars/SecureBoot-*'):
                 try:
-                    raw=open(f,'rb').read()
+                    with open(f,'rb') as stream: raw=stream.read()
                     if len(raw)>4:secure=bool(raw[4])
                 except OSError:pass
             r.add('Secure Boot','Enabled' if secure is True else 'Disabled' if secure is False else 'Firmware variable is not readable')

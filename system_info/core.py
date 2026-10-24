@@ -9,14 +9,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 from datetime import datetime
+import math
+from .version import VERSION
 
 
 def _clean(value: Any) -> Any:
     """Recursively convert values into JSON-friendly primitives."""
     if isinstance(value, dict):
         return {str(k): _clean(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, set):
+        return [_clean(v) for v in sorted(value, key=str)]
+    if isinstance(value, (list, tuple)):
         return [_clean(v) for v in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
     if isinstance(value, (int, float, str, bool)) or value is None:
         return value
     return str(value)
@@ -63,8 +69,9 @@ class CategoryResult:
     note: str | None = None
 
     def add(self, label: str, value: Any, unit: str | None = None, advanced: bool = False) -> "CategoryResult":
+        value = _clean(value)
         if isinstance(value, list):
-            self.fields.append(Field(label=label, value=", ".join(str(v) for v in value) if value else None, unit=unit, advanced=advanced))
+            self.fields.append(Field(label=label, value=", ".join(str(v) for v in value if v is not None) if value else None, unit=unit, advanced=advanced))
         else:
             self.fields.append(Field(label=label, value=value, unit=unit, advanced=advanced))
         return self
@@ -83,7 +90,7 @@ class CategoryResult:
             "title": self.title,
             "note": self.note,
             "fields": [f.to_dict() for f in self.fields],
-            "records": self.records,
+            "records": _clean(self.records),
         }
 
 
@@ -105,4 +112,4 @@ class SystemSnapshot:
         return None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"schema_version": "1.2", "collected_at": self.captured_at, "categories": [c.to_dict() for c in self.categories]}
+        return {"schema_version": "1.2", "app_version": VERSION, "collected_at": self.captured_at, "categories": [c.to_dict() for c in self.categories]}

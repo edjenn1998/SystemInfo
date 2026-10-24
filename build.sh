@@ -1,9 +1,14 @@
-#!/bin/sh
-set -eu
-python3 -m pip install -r requirements.txt pyinstaller==6.22.3
-system_info_arch=$(uname -m)
-set -- --noconfirm --clean --onefile --name "SystemInfo-1.2-Linux-${system_info_arch}" --distpath deliverables
-if [ "$system_info_arch" = x86_64 ]; then
-    set -- "$@" --add-binary "vendor/libxcb-cursor.so.0:." --add-binary "vendor/iw:bundled_tools"
-fi
-python3 -m PyInstaller "$@" launch_system_info.py
+#!/usr/bin/env bash
+set -euo pipefail
+project_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+python_bin=${SYSTEM_INFO_PYTHON:-python3.12}
+build_root=${SYSTEM_INFO_BUILD_ROOT:-/tmp/system-info-build}
+export SYSTEM_INFO_BUILD_ROOT="$build_root"
+"$python_bin" -m pip check
+"$python_bin" -m PyInstaller --noconfirm --clean \
+  --workpath "$build_root/work" --distpath "$build_root/dist" "$project_dir/SystemInfo-portable.spec"
+"$python_bin" "$project_dir/tools/audit_bundle.py" "$build_root/dist/SystemInfo" \
+  --max-glibc "${SYSTEM_INFO_MAX_GLIBC:-2.35}" > "$build_root/abi-audit.json"
+"$python_bin" "$project_dir/tools/collect_licenses.py" \
+  "$build_root/dist/SystemInfo/share" "$build_root/native-sources.json"
+QT_QPA_PLATFORM=offscreen "$build_root/dist/SystemInfo/SystemInfo" --self-test

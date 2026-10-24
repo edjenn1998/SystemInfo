@@ -10,7 +10,7 @@ from system_info.collectors.power import battery_record
 from system_info.collectors.cpu import boost_status
 from system_info.collectors.storage import StorageCollector, health_fields
 from system_info.collectors.gpu import GpuCollector
-from system_info.collectors.network import NetworkCollector, wifi_link, nm_fields
+from system_info.collectors.network import wifi_link, nm_fields
 from system_info.core import CategoryResult, SystemSnapshot
 from system_info.overview import overview
 from system_info.protected import read_protected
