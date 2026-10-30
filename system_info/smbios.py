@@ -46,6 +46,7 @@ def parse_smbios(blob):
         elif typ==16 and length>=0x0f:
             fields['Number Of Devices']=str(integer(0x0d,2))
             fields['Use']='System Memory' if integer(5)==3 else 'Other memory array'
+            fields['Error Correction Type']={3:'None',4:'Parity',5:'Single-bit ECC',6:'Multi-bit ECC',7:'CRC'}.get(integer(6),'Unknown')
         elif typ==17 and length>=0x15:
             fields['Array Handle']=f'0x{integer(4,2):04x}'
             size=integer(0x0c,2)

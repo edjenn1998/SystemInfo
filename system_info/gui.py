@@ -27,10 +27,13 @@ GROUPS = {'disk':'Installed drives','partition':'Partitions / filesystems','volu
           'gpu':'GPU adapters','display':'Connected displays','display_connector':'Unused display connectors',
           'network_adapter':'Physical network adapters','virtual_interface':'Virtual network interfaces',
           'bluetooth':'Bluetooth adapters','route':'Routes','battery':'Battery','power_input':'Power inputs',
-          'memory_module':'Memory banks / devices','usb_device':'USB devices','usb_hub':'USB hubs',
+          'memory_module':'Installed Modules','usb_device':'USB devices','usb_hub':'USB hubs',
           'internal_controller':'Internal controllers','sensor':'Sensor readings','vulnerability':'CPU security status',
           'summary_drive':'Installed storage','summary_network':'Network','observation':'Troubleshooting observations'}
 LABELS = {'uuid':'Filesystem / container UUID','partuuid':'Partition UUID (PARTUUID)',
+          'configured_speed':'Configured speed (firmware)', 'rated_speed':'Rated speed (firmware maximum)',
+          'memory_type':'Memory technology', 'size':'Capacity (SMBIOS binary units)',
+          'ecc_capability':'ECC capability', 'array_error_correction':'Array error correction (firmware)',
           'fstab_entries':'Matching fstab entries','parent':'Parent drive / partition',
           'other_parents':'Also belongs to','health_percent':'Battery health (% of design capacity)',
           'wear_percent':'Capacity wear (%)','charge_percent':'Current charge (%)',
@@ -248,12 +251,25 @@ class Window(QMainWindow):
                 node = QTreeWidgetItem(parent, values); node.setData(0, Qt.ItemDataRole.UserRole, key)
                 node.setExpanded(key in expanded if expanded is not None else default)
                 return node
+            sections = {}
+            def section_node(title):
+                if title not in sections:
+                    node = item(tree, [title, ''], f'section/{title}', True)
+                    font = node.font(0); font.setBold(True); node.setFont(0, font)
+                    sections[title] = node
+                return sections[title]
+            if cat.name == 'memory':
+                for title in ('System Memory', 'Memory Configuration', 'Installed Modules', 'Swap'):
+                    section_node(title)
             for index, field in enumerate(cat.fields):
                 if field.advanced and not technical: continue
                 if field.value is None and not technical: continue
                 value = field.display() if field.value is not None else 'Not reported by this system'
-                node = item(tree, [field.label, value], f'field/{field.label}/{index}')
-                node.setToolTip(0, field.label); node.setToolTip(1, value)
+                parent = section_node(field.section) if field.section else tree
+                if cat.name == 'memory' and not field.section:
+                    parent = section_node('Technical details' if field.advanced else 'Memory Configuration')
+                node = item(parent, [field.label, value], f'field/{field.label}/{index}')
+                node.setToolTip(0, field.tooltip or field.label); node.setToolTip(1, field.tooltip or value)
             groups, device_nodes = {}, {}
             for index, rec in enumerate(cat.records):
                 if rec.get('advanced') and not technical: continue
@@ -262,7 +278,8 @@ class Window(QMainWindow):
                 if group is None:
                     group = groups.get(kind)
                     if group is None:
-                        group = item(tree, [GROUPS.get(kind, kind.replace('_', ' ').capitalize()), ''], f'group/{kind}', True)
+                        group = (section_node('Installed Modules') if cat.name == 'memory' and kind == 'memory_module' else
+                                 item(tree, [GROUPS.get(kind, kind.replace('_', ' ').capitalize()), ''], f'group/{kind}', True))
                         groups[kind] = group; font = group.font(0); font.setBold(True); group.setFont(0, font)
                 name = rec.get('model') or rec.get('name') or rec.get('device') or rec.get('connector') or kind
                 subtitle = rec.get('drive_type') or rec.get('status') or rec.get('adapter_type') or rec.get('size') or ''
@@ -270,14 +287,24 @@ class Window(QMainWindow):
                 key = f'record/{kind}/{rec.get("device") or rec.get("slot") or name}/{index}'
                 node = item(group, [str(name), str(subtitle)], key,
                             kind not in ('sensor','vulnerability','internal_controller','usb_hub','display_connector','virtual_disk'))
+                if kind == 'memory_module':
+                    node.setToolTip(0, 'Firmware slot/device designation; does not prove a physically accessible RAM slot.')
                 if rec.get('device') and kind in ('disk', 'partition', 'volume'): device_nodes[rec['device']] = node
                 for prop, value in rec.items():
                     if prop in ('kind','advanced','advanced_keys','name') or (not technical and prop == 'parent'): continue
                     if value is None or value == '' or value == []: continue
                     if not technical and (prop in TECH_KEYS or prop in rec.get('advanced_keys', [])): continue
                     if kind == 'sensor' and prop in ('value','unit') and not technical: continue
-                    child = item(node, [LABELS.get(prop, prop.replace('_', ' ').capitalize()), fmt(value)], key+'/'+prop)
-                    child.setToolTip(1, fmt(value))
+                    label = LABELS.get(prop, prop.replace('_', ' ').capitalize())
+                    if kind != 'memory_module' and prop == 'size': label = 'Size'
+                    if kind == 'memory_module' and prop == 'size' and rec.get('source', '').startswith('EDAC'): label = 'Capacity (MiB)'
+                    child = item(node, [label, fmt(value)], key+'/'+prop)
+                    tooltip = fmt(value)
+                    if kind == 'memory_module' and prop in ('configured_speed', 'rated_speed'):
+                        tooltip = 'Configured: firmware-reported operating transfer rate. Rated: firmware-reported module maximum. Neither is a live timing measurement; MT/s is not MHz.'
+                    child.setToolTip(0, tooltip); child.setToolTip(1, tooltip)
+            if cat.name == 'memory' and not sections['Installed Modules'].childCount():
+                item(sections['Installed Modules'], ['Module inventory', 'Not available — see Memory inventory status'], 'memory/no-modules')
             self.trees.append(tree); self.tabs.addTab(tree, TABS.get(cat.name, cat.title))
             tree.verticalScrollBar().setValue(scroll)
         selected_index = next((i for i, tree in enumerate(self.trees) if tree.property('category') == selected), 0)

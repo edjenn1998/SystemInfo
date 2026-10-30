@@ -354,7 +354,7 @@ class CliTests(unittest.TestCase):
             path = Path(folder) / 'report.json'
             result, stdout, _, _ = self.invoke(['--json','--output',str(path)])
             self.assertEqual(result, 0); self.assertEqual(stdout, '')
-            self.assertEqual(json.loads(path.read_text())['app_version'], '1.3.0')
+            self.assertEqual(json.loads(path.read_text())['app_version'], '1.4.0')
 
     def test_cli_bad_output_path_is_a_readable_error(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -44,4 +44,31 @@ class GUITests(unittest.TestCase):
         for button in [self.w.refresh,self.w.protected,self.w.drive_health,self.w.export]:
             point=button.mapTo(self.w,button.rect().bottomRight());self.assertLess(point.x(),self.w.width());self.assertLess(point.y(),self.w.height())
 
+    def test_memory_sections_tooltips_and_module_speed_labels(self):
+        memory = CategoryResult('memory', 'Memory')
+        memory.add('Installed RAM', 16, 'GiB', section='System Memory', tooltip='Physical SMBIOS inventory, not Linux usable RAM')
+        memory.add('Unavailable to Linux', 0.6, 'GiB', section='System Memory', tooltip='Includes firmware and integrated GPU reservations')
+        memory.add('CAS Latency (tCL)', 'Not available', section='Memory Configuration', tooltip='SPD profiles are not active timings')
+        memory.add('Swap available', 2, 'GiB', section='Swap')
+        memory.add_record({'kind':'memory_module', 'name':'DIMM A', 'size':'16384 MB',
+                           'configured_speed':'2666 MT/s', 'rated_speed':'3200 MT/s'})
+        snapshot = SystemSnapshot(); snapshot.add(memory); self.w.show_result(snapshot)
+        tree = self.tab('memory')
+        groups = self.groups(tree)
+        self.assertEqual([g.text(0) for g in groups], ['System Memory', 'Memory Configuration', 'Installed Modules', 'Swap'])
+        self.assertIn('integrated GPU', groups[0].child(1).toolTip(1))
+        self.assertEqual(groups[1].child(0).text(1), 'Not available')
+        module = groups[2].child(0)
+        labels = [module.child(i).text(0) for i in range(module.childCount())]
+        self.assertIn('Configured speed (firmware)', labels)
+        self.assertIn('Rated speed (firmware maximum)', labels)
+        self.w.search.setText('2666')
+        self.assertFalse(groups[2].isHidden())
+        self.assertFalse(module.isHidden())
+
+    def test_memory_missing_inventory_is_visible(self):
+        tree = self.tab('memory')
+        modules = next(g for g in self.groups(tree) if g.text(0) == 'Installed Modules')
+        self.assertIn('Not available', modules.child(0).text(1))
+
 if __name__=='__main__':unittest.main()

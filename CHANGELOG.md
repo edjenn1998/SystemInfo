@@ -1,3 +1,20 @@
+# 1.4.0
+
+- Add installed RAM, procfs usable RAM and **Unavailable to Linux**, calculated in
+  bytes before display rounding. Withhold the difference for missing, incomplete,
+  duplicate or inconsistent firmware inventory; never display a negative value.
+- Explain firmware/iGPU/mapping and other reservations without attributing the
+  entire difference to hardware. RAM use is usable minus available memory.
+- Group the existing Qt Memory tab into System Memory, Memory Configuration,
+  Installed Modules and Swap, with interpretation tooltips and swap availability.
+- Distinguish configured transfer rate from firmware-reported module maximum;
+  decode array error correction and conservatively identify ECC-capable modules
+  only with corroborating width information. Do not infer accessible slots/channels.
+- Explicitly mark tCL/tRCD/tRP/tRAS and command rate as unavailable: no validated
+  safe portable interface is implemented. SPD profiles are never active timings.
+- Add calculation, binary-unit, inventory-validation and offscreen UI regressions.
+  No new runtime dependencies; protected firmware reads remain optional.
+
 # 1.3.0
 
 - Add shared recursive privacy for JSON/text/copied reports, known identifiers in

@@ -49,7 +49,7 @@ compatibility alone does not guarantee every desktop/driver/permission setup.
 
 Outputs under `dist/`:
 
-- `SystemInfo-1.3.0-x86_64.AppImage`
+- `SystemInfo-1.4.0-x86_64.AppImage`
 - `SHA256SUMS`
 - `abi-audit.json`
 - `python-dependencies.txt`
@@ -57,7 +57,7 @@ Outputs under `dist/`:
 
 Current licenses, Python/native inventories and toolchain hashes are also inside
 the AppImage at `usr/share/system-info/`. The historical v1.2 glibc 2.30 audit in
-`compatibility/` does not apply to these v1.3.0 builds.
+`compatibility/` does not apply to these v1.4.0 builds.
 
 ## Release procedure
 

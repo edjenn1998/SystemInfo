@@ -36,6 +36,8 @@ class Field:
     value: Any
     unit: str | None = None
     advanced: bool = False
+    section: str | None = None
+    tooltip: str | None = None
 
     def display(self) -> str:
         if self.value is None:
@@ -51,6 +53,10 @@ class Field:
             data["unit"] = self.unit
         if self.advanced:
             data["advanced"] = True
+        if self.section:
+            data["section"] = self.section
+        if self.tooltip:
+            data["tooltip"] = self.tooltip
         return data
 
 
@@ -68,12 +74,13 @@ class CategoryResult:
     records: list[dict[str, Any]] = field(default_factory=list)
     note: str | None = None
 
-    def add(self, label: str, value: Any, unit: str | None = None, advanced: bool = False) -> "CategoryResult":
+    def add(self, label: str, value: Any, unit: str | None = None, advanced: bool = False,
+            *, section: str | None = None, tooltip: str | None = None) -> "CategoryResult":
         value = _clean(value)
         if isinstance(value, list):
-            self.fields.append(Field(label=label, value=", ".join(str(v) for v in value if v is not None) if value else None, unit=unit, advanced=advanced))
+            self.fields.append(Field(label=label, value=", ".join(str(v) for v in value if v is not None) if value else None, unit=unit, advanced=advanced, section=section, tooltip=tooltip))
         else:
-            self.fields.append(Field(label=label, value=value, unit=unit, advanced=advanced))
+            self.fields.append(Field(label=label, value=value, unit=unit, advanced=advanced, section=section, tooltip=tooltip))
         return self
 
     def add_record(self, record: dict[str, Any]) -> "CategoryResult":

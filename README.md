@@ -1,4 +1,4 @@
-# System Info 1.3.0
+# System Info 1.4.0
 
 A read-only Linux hardware information and troubleshooting utility. Explore your
 processor, memory, motherboard/BIOS, drives, graphics, network, battery and sensors,
@@ -13,7 +13,7 @@ then copy or export a report. No account or upload is required.
 ### 1. Download the application
 
 Open [the latest release](https://github.com/edjenn1998/SystemInfo/releases/latest),
-expand **Assets**, and download **`SystemInfo-1.3.0-x86_64.AppImage`**.
+expand **Assets**, and download **`SystemInfo-1.4.0-x86_64.AppImage`**.
 GitHub's “Source code” ZIP/tar downloads are for developers.
 
 The AppImage includes Python, Qt, psutil and a Wi-Fi query fallback. It targets
@@ -47,8 +47,8 @@ Open a terminal in the download's folder (in Ubuntu Files, right-click the folde
 background and choose **Open in Terminal**):
 
 ```sh
-chmod +x ./SystemInfo-1.3.0-x86_64.AppImage
-./SystemInfo-1.3.0-x86_64.AppImage
+chmod +x ./SystemInfo-1.4.0-x86_64.AppImage
+./SystemInfo-1.4.0-x86_64.AppImage
 ```
 
 Use the actual filename you downloaded. `./` means “run this file in the current
@@ -62,7 +62,7 @@ the kernel's FUSE mount facility. If your system restricts mounting, or you see 
 FUSE or permission error, use the built-in no-FUSE launch mode:
 
 ```sh
-./SystemInfo-1.3.0-x86_64.AppImage --appimage-extract-and-run
+./SystemInfo-1.4.0-x86_64.AppImage --appimage-extract-and-run
 ```
 
 This extracts the app to a temporary folder, runs it and cleans up afterward.
@@ -73,7 +73,7 @@ files, move the AppImage to your home folder first.
 For an extracted copy you can keep:
 
 ```sh
-./SystemInfo-1.3.0-x86_64.AppImage --appimage-extract
+./SystemInfo-1.4.0-x86_64.AppImage --appimage-extract
 ./squashfs-root/AppRun
 ```
 
@@ -149,9 +149,37 @@ uploaded anywhere by the application.
 - Memory bank counts describe firmware devices, possibly soldered chips, rather
   than proving user-upgradeable slots. Incomplete bank data is labeled as partial
   capacity; video-memory arrays are not counted as system RAM.
-- **Live CL/tRCD/tRP/tRAS memory timings are not supported.** Firmware authorization
-  does not unlock them. Missing permissions and missing firmware fields are reported
-  separately.
+- The Memory tab retains the existing Qt/PySide6 interface and compact tree layout,
+  grouped into **System Memory**, **Memory Configuration**, **Installed Modules**
+  and **Swap**. Hover over capacity, speed and timing values for interpretation.
+- **Installed RAM** sums populated system-memory SMBIOS devices only when the
+  inventory is complete. **Usable RAM** is Linux `/proc/meminfo` `MemTotal`.
+  **Unavailable to Linux** is installed minus usable, calculated before rounding.
+  It can include firmware allocations, integrated GPU reservations, memory mapping
+  exclusions and other system-level reservations, not only hardware reservations.
+  Incomplete/unknown inventory or installed capacity below usable produces
+  **Not available**, never a negative estimate. Known partial capacity is separate.
+  Firmware can still be inaccurate even when internally consistent.
+- Linux meminfo `kB` and SMBIOS `kB`/`MB`/`GB` denote binary units: 1024 bytes,
+  1024² bytes and 1024³ bytes respectively. The UI displays GiB (1024³ bytes), not
+  decimal GB (10⁹ bytes). RAM in use is usable minus available; available includes
+  reclaimable caches. Older kernels without `MemAvailable` use psutil's estimate.
+- Module details include technology, capacity, firmware slot designation,
+  manufacturer, part number, configured transfer rate and rated speed where
+  reported. Configured speed is a firmware report, not a live measurement. Rated
+  speed is the firmware-reported module maximum, not the motherboard/controller
+  maximum. MT/s is not MHz; legacy tool output retains its reported units.
+- ECC capability requires both firmware array ECC reporting and extra module
+  check-bit width. It does not establish that ECC is enabled. DDR5 on-die ECC is
+  not evidence of system-level ECC. Unknown capability remains **Not available**.
+  Channel mode is omitted: bank names, ranks and device counts do not prove it.
+- **Active tCL/tRCD/tRP/tRAS and command rate show Not available.** Linux procfs,
+  SMBIOS and standard EDAC interfaces do not provide a portable validated source
+  for these active AMD/Intel timings. No controller register access, `/dev/mem`,
+  I2C/SPD probing or vendor-specific tool is used. SPD/XMP/EXPO advertised profiles
+  would not establish active settings. Firmware authorization does not unlock
+  timings. Missing permissions and missing firmware fields are reported separately.
+
 - Drive types use reported transport/rotation data; an unknown rotation flag is
   not assumed to be an SSD. Shared logical volumes are listed once, with additional
   parents noted. Remote filesystem space queries are skipped to avoid stalled
@@ -166,6 +194,13 @@ uploaded anywhere by the application.
 - Sensor names come from drivers; 0 RPM can be normal. No flagged observations
   means only that the available readings did not trigger these checks, not that a
   comprehensive diagnostic test passed.
+
+Detection references: [Linux EDAC sysfs ABI](https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-edac)
+documents module sizes/types, error modes and topology locations, but no standard
+active timing attributes. [Linux procfs documentation](https://docs.kernel.org/filesystems/proc.html#meminfo)
+defines the kernel memory accounting. Firmware decoding follows DMTF SMBIOS
+types 16 (physical array) and 17 (memory device). EDAC fallback inventory is limited
+and is never substituted for a complete SMBIOS installed-capacity measurement.
 
 ## Optional protected reads
 
@@ -203,12 +238,12 @@ saved-report export still work when protected access is unavailable or declined.
 ## Headless CLI
 
 ```sh
-./SystemInfo-1.3.0-x86_64.AppImage --cli --list
-./SystemInfo-1.3.0-x86_64.AppImage --cli overview
-./SystemInfo-1.3.0-x86_64.AppImage --cli cpu memory --json
-./SystemInfo-1.3.0-x86_64.AppImage --cli --json --output report.json
-./SystemInfo-1.3.0-x86_64.AppImage --cli --json --include-identifiers
-./SystemInfo-1.3.0-x86_64.AppImage --cli overview --sequential --progress
+./SystemInfo-1.4.0-x86_64.AppImage --cli --list
+./SystemInfo-1.4.0-x86_64.AppImage --cli overview
+./SystemInfo-1.4.0-x86_64.AppImage --cli cpu memory --json
+./SystemInfo-1.4.0-x86_64.AppImage --cli --json --output report.json
+./SystemInfo-1.4.0-x86_64.AppImage --cli --json --include-identifiers
+./SystemInfo-1.4.0-x86_64.AppImage --cli overview --sequential --progress
 ```
 
 Add `--appimage-extract-and-run` before `--cli` if needed. With source, replace
@@ -234,7 +269,8 @@ QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests -v
 QT_QPA_PLATFORM=offscreen python launch_system_info.py --self-test
 ```
 
-The suite has **88 tests**. Protected reads are checked with fixtures/mocks;
+The suite has **111 tests**, including memory calculations, firmware edge cases and
+offscreen UI regressions. Protected reads are checked with fixtures/mocks;
 automated tests do not request administrator authorization. The packaged self-test
 uses illustrative hardware data for deterministic GUI, search, icon and report
 checks. Actual battery/firmware/drive permissions and driver support still need
