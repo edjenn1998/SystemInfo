@@ -15,6 +15,8 @@ bash "$project_dir/build.sh"
 (cd "$build_root/tools" && ./appimagetool --appimage-extract)
 app_dir=$(mktemp -d "$build_root/SystemInfo.AppDir.XXXXXX")
 trap 'rm -rf -- "$app_dir"' EXIT
+# The packaged root must be searchable by users other than the build account.
+chmod 755 "$app_dir"
 mkdir -p "$app_dir/usr/lib/system-info" "$app_dir/usr/share/system-info" "$project_dir/dist"
 cp -a "$build_root/dist/SystemInfo/." "$app_dir/usr/lib/system-info/"
 mv "$app_dir/usr/lib/system-info/share/"* "$app_dir/usr/share/system-info/"

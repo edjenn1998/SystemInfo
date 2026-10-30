@@ -14,6 +14,8 @@
   safe portable interface is implemented. SPD profiles are never active timings.
 - Add calculation, binary-unit, inventory-validation and offscreen UI regressions.
   No new runtime dependencies; protected firmware reads remain optional.
+- Refresh the verified AppImage build-tool pin and make the temporary AppDir root
+  world-readable/searchable for upstream's new packaging permission validation.
 
 # 1.3.0
 
